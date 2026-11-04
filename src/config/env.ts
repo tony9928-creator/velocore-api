@@ -1,15 +1,21 @@
 import "dotenv/config";
 
-function required(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`Falta la variable de entorno ${name}`);
-  return value;
+const HINT = "Copia .env.example a .env y completa los valores (ver README)";
+
+/** Devuelve la primera variable definida y no vacía, o lanza un error claro en español. */
+function required(...names: string[]): string {
+  for (const name of names) {
+    const value = process.env[name];
+    if (value) return value;
+  }
+  throw new Error(`Falta la variable de entorno ${names[0]}. ${HINT}`);
 }
 
 export const env = {
-  port: Number(process.env.PORT ?? 3000),
-  mongoUri: process.env.MONGO_URI ?? required("MONGODB_URI"),
+  port: Number(process.env.PORT || 3000),
+  // MONGODB_URI se acepta como alternativa a MONGO_URI.
+  mongoUri: required("MONGO_URI", "MONGODB_URI"),
   jwtSecret: required("JWT_SECRET"),
-  jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? "1d",
-  saltRounds: Number(process.env.BCRYPT_SALT_ROUNDS ?? 10),
+  jwtExpiresIn: process.env.JWT_EXPIRES_IN || "1d",
+  saltRounds: Number(process.env.BCRYPT_SALT_ROUNDS || 10),
 };
