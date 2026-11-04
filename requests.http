@@ -1,0 +1,459 @@
+# Velocore API - pruebas con la extensión REST Client (humao.rest-client)
+# Ejecuta cada petición con "Send Request" (o Ctrl+Alt+R) sobre la línea de la petición.
+#
+# ANTES DE EMPEZAR
+#   1. Arranca la API:        npm run dev
+#   2. Carga los datos:       npm run seed      (borra y recrea los datos de ejemplo)
+#
+# USUARIOS DEL SEED (contraseña de todos: Velocore2026)
+#   admin@velocore.io              admin
+#   lautaro.maidana@velocore.io    trainer   (Kickboxing, Boxeo)
+#   camila.benitez@velocore.io     trainer   (Calistenia, Boxeo Principiantes)
+#   ana.socia@velocore.io          client
+#   facundo.ramirez@velocore.io    client
+#
+# ORDEN: ejecuta primero la sección 1 (logins): guardan los tokens en variables.
+# Las variables se pierden si cierras VS Code: vuelve a ejecutar los logins.
+#
+# Formato de error de toda la API:
+#   { "success": false, "message": "...", "errors": [{ "field": "...", "message": "..." }] }
+
+@base = http://localhost:3000/api
+@json = application/json
+@password = Velocore2026
+
+### ---------------------------------------------------------------
+### 0. SALUD
+### ---------------------------------------------------------------
+
+GET {{base}}/health
+
+### ---------------------------------------------------------------
+### 1. LOGIN -> 200 { user, token }
+### ---------------------------------------------------------------
+
+### Admin
+# @name loginAdmin
+POST {{base}}/auth/login
+Content-Type: {{json}}
+
+{
+  "email": "admin@velocore.io",
+  "password": "{{password}}"
+}
+
+###
+@adminToken = {{loginAdmin.response.body.token}}
+
+### Entrenador Lautaro Maidana
+# @name loginLautaro
+POST {{base}}/auth/login
+Content-Type: {{json}}
+
+{
+  "email": "lautaro.maidana@velocore.io",
+  "password": "{{password}}"
+}
+
+###
+@lautaroToken = {{loginLautaro.response.body.token}}
+@lautaroId = {{loginLautaro.response.body.user.id}}
+
+### Entrenadora Camila Benítez
+# @name loginCamila
+POST {{base}}/auth/login
+Content-Type: {{json}}
+
+{
+  "email": "camila.benitez@velocore.io",
+  "password": "{{password}}"
+}
+
+###
+@camilaToken = {{loginCamila.response.body.token}}
+@camilaId = {{loginCamila.response.body.user.id}}
+
+### Socia Ana
+# @name loginAna
+POST {{base}}/auth/login
+Content-Type: {{json}}
+
+{
+  "email": "ana.socia@velocore.io",
+  "password": "{{password}}"
+}
+
+###
+@anaToken = {{loginAna.response.body.token}}
+
+### Socio Facundo Ramírez
+# @name loginFacundo
+POST {{base}}/auth/login
+Content-Type: {{json}}
+
+{
+  "email": "facundo.ramirez@velocore.io",
+  "password": "{{password}}"
+}
+
+###
+@facundoToken = {{loginFacundo.response.body.token}}
+
+### ---------------------------------------------------------------
+### 2. REGISTRO -> 201 (siempre crea un "client")
+### ---------------------------------------------------------------
+
+### Nueva socia: Sofía Vallejos
+# Si ya la registraste antes, responde 409 (email ya registrado): es lo esperado.
+POST {{base}}/auth/register
+Content-Type: {{json}}
+
+{
+  "name": "Sofía Vallejos",
+  "email": "sofia.vallejos@velocore.io",
+  "password": "{{password}}"
+}
+
+### Login de Sofía
+# @name loginSofia
+POST {{base}}/auth/login
+Content-Type: {{json}}
+
+{
+  "email": "sofia.vallejos@velocore.io",
+  "password": "{{password}}"
+}
+
+###
+@sofiaToken = {{loginSofia.response.body.token}}
+@sofiaId = {{loginSofia.response.body.user.id}}
+
+### ---------------------------------------------------------------
+### 3. USUARIOS
+### ---------------------------------------------------------------
+
+### Mi perfil (cualquier rol) -> 200
+GET {{base}}/users/me
+Authorization: Bearer {{anaToken}}
+
+### Listar usuarios (solo admin) -> 200
+GET {{base}}/users
+Authorization: Bearer {{adminToken}}
+
+### Cambiar rol (solo admin): Sofía pasa a trainer -> 200
+PATCH {{base}}/users/{{sofiaId}}/role
+Authorization: Bearer {{adminToken}}
+Content-Type: {{json}}
+
+{
+  "role": "trainer"
+}
+
+### Devolver a Sofía a client -> 200
+PATCH {{base}}/users/{{sofiaId}}/role
+Authorization: Bearer {{adminToken}}
+Content-Type: {{json}}
+
+{
+  "role": "client"
+}
+
+### ---------------------------------------------------------------
+### 4. CLASES: LECTURA (públicas, sin token)
+### ---------------------------------------------------------------
+
+### Listar clases con lugares libres -> 200
+# @name listClasses
+GET {{base}}/classes
+
+### (la lista sale ordenada por fecha: Kickboxing es la primera clase del seed)
+@kickboxingId = {{listClasses.response.body.$[0].id}}
+
+### Ver el detalle de una clase -> 200
+GET {{base}}/classes/{{kickboxingId}}
+
+### Filtrar por instructor -> 200
+GET {{base}}/classes?instructor={{lautaroId}}
+
+### Filtrar por nombre (parcial, sin distinguir mayúsculas) -> 200
+GET {{base}}/classes?name=boxeo
+
+### Filtrar por día (AAAA-MM-DD, en UTC): mañana -> 200
+GET {{base}}/classes?date={{$datetime 'YYYY-MM-DD' 1 d}}
+
+### Filtros combinados -> 200
+GET {{base}}/classes?instructor={{lautaroId}}&name=box
+
+### Buscar la clase llena (Boxeo Principiantes, 0 lugares libres) -> 200
+# @name fullClass
+GET {{base}}/classes?name=principiantes
+
+###
+@fullClassId = {{fullClass.response.body.$[0].id}}
+
+### ---------------------------------------------------------------
+### 5. CLASES: ESCRITURA
+### ---------------------------------------------------------------
+
+### Lautaro crea una clase -> 201 (availableSlots = capacity)
+# @name createClass
+POST {{base}}/classes
+Authorization: Bearer {{lautaroToken}}
+Content-Type: {{json}}
+
+{
+  "name": "Kickboxing Avanzado",
+  "description": "Sparring controlado y trabajo de potencia",
+  "startsAt": "{{$datetime iso8601 4 d}}",
+  "durationMinutes": 90,
+  "capacity": 6
+}
+
+###
+@classId = {{createClass.response.body.id}}
+
+### El admin crea una clase para Camila -> 201
+POST {{base}}/classes
+Authorization: Bearer {{adminToken}}
+Content-Type: {{json}}
+
+{
+  "name": "Calistenia Funcional",
+  "description": "Movilidad y fuerza básica",
+  "startsAt": "{{$datetime iso8601 5 d}}",
+  "durationMinutes": 60,
+  "capacity": 12,
+  "trainerId": "{{camilaId}}"
+}
+
+### Lautaro reemplaza su clase completa con PUT -> 200
+PUT {{base}}/classes/{{classId}}
+Authorization: Bearer {{lautaroToken}}
+Content-Type: {{json}}
+
+{
+  "name": "Kickboxing Avanzado",
+  "description": "Sparring controlado, 2 rounds extra",
+  "startsAt": "{{$datetime iso8601 4 d}}",
+  "durationMinutes": 105,
+  "capacity": 8
+}
+
+### Lautaro modifica un campo con PATCH -> 200
+PATCH {{base}}/classes/{{classId}}
+Authorization: Bearer {{lautaroToken}}
+Content-Type: {{json}}
+
+{
+  "capacity": 10
+}
+
+### Camila intenta modificar la clase de Lautaro -> 403
+PATCH {{base}}/classes/{{classId}}
+Authorization: Bearer {{camilaToken}}
+Content-Type: {{json}}
+
+{
+  "capacity": 3
+}
+
+### ---------------------------------------------------------------
+### 6. RESERVAS
+### ---------------------------------------------------------------
+
+### Mis reservas (Ana) -> 200
+GET {{base}}/bookings/me
+Authorization: Bearer {{anaToken}}
+
+### Facundo reserva la clase nueva -> 201
+# @name createBooking
+POST {{base}}/bookings
+Authorization: Bearer {{facundoToken}}
+Content-Type: {{json}}
+
+{
+  "classId": "{{classId}}"
+}
+
+###
+@bookingId = {{createBooking.response.body.id}}
+
+### Facundo reserva otra vez la misma clase -> 409
+POST {{base}}/bookings
+Authorization: Bearer {{facundoToken}}
+Content-Type: {{json}}
+
+{
+  "classId": "{{classId}}"
+}
+
+### Sofía intenta reservar la clase llena -> 409 (sin cupos)
+POST {{base}}/bookings
+Authorization: Bearer {{sofiaToken}}
+Content-Type: {{json}}
+
+{
+  "classId": "{{fullClassId}}"
+}
+
+### Todas las reservas (admin) -> 200
+GET {{base}}/bookings
+Authorization: Bearer {{adminToken}}
+
+### Reservas de las clases de Lautaro (trainer) -> 200
+GET {{base}}/bookings
+Authorization: Bearer {{lautaroToken}}
+
+### Reservas de una clase concreta -> 200
+GET {{base}}/bookings?classId={{classId}}
+Authorization: Bearer {{lautaroToken}}
+
+### Ana intenta cancelar la reserva de Facundo -> 403
+DELETE {{base}}/bookings/{{bookingId}}
+Authorization: Bearer {{anaToken}}
+
+### Facundo cancela su reserva (dueño) -> 200
+DELETE {{base}}/bookings/{{bookingId}}
+Authorization: Bearer {{facundoToken}}
+
+### Facundo cancela otra vez la misma reserva -> 409
+DELETE {{base}}/bookings/{{bookingId}}
+Authorization: Bearer {{facundoToken}}
+
+### Lautaro intenta eliminar la clase (solo admin) -> 403
+DELETE {{base}}/classes/{{classId}}
+Authorization: Bearer {{lautaroToken}}
+
+### El admin elimina la clase -> 200 { success, message }
+# También cancela las reservas activas de esa clase.
+DELETE {{base}}/classes/{{classId}}
+Authorization: Bearer {{adminToken}}
+
+### ---------------------------------------------------------------
+### 7. ERRORES DE VALIDACIÓN (esperado 400)
+### ---------------------------------------------------------------
+
+### Email inválido y contraseña débil -> 400
+POST {{base}}/auth/register
+Content-Type: {{json}}
+
+{
+  "name": "X",
+  "email": "no-es-un-email",
+  "password": "123"
+}
+
+### JSON mal formado -> 400
+POST {{base}}/auth/login
+Content-Type: {{json}}
+
+{ "email":
+
+### Cupo 0 -> 400
+POST {{base}}/classes
+Authorization: Bearer {{lautaroToken}}
+Content-Type: {{json}}
+
+{
+  "name": "Clase sin cupo",
+  "startsAt": "{{$datetime iso8601 2 d}}",
+  "durationMinutes": 60,
+  "capacity": 0
+}
+
+### Fecha en el pasado -> 400
+POST {{base}}/classes
+Authorization: Bearer {{lautaroToken}}
+Content-Type: {{json}}
+
+{
+  "name": "Clase vieja",
+  "startsAt": "2020-01-01T10:00:00.000Z",
+  "durationMinutes": 60,
+  "capacity": 10
+}
+
+### Fecha con formato inválido -> 400
+POST {{base}}/classes
+Authorization: Bearer {{lautaroToken}}
+Content-Type: {{json}}
+
+{
+  "name": "Clase rara",
+  "startsAt": "mañana",
+  "durationMinutes": 60,
+  "capacity": 10
+}
+
+### PUT con campos faltantes -> 400
+PUT {{base}}/classes/{{kickboxingId}}
+Authorization: Bearer {{lautaroToken}}
+Content-Type: {{json}}
+
+{
+  "name": "Solo nombre"
+}
+
+### Filtro de fecha con formato inválido -> 400
+GET {{base}}/classes?date=01-12-2026
+
+### ID con formato inválido -> 400
+GET {{base}}/classes/esto-no-es-un-id
+
+### ---------------------------------------------------------------
+### 8. AUTENTICACIÓN Y PERMISOS (401 / 403 / 404)
+### ---------------------------------------------------------------
+
+### Crear clase sin token -> 401
+POST {{base}}/classes
+Content-Type: {{json}}
+
+{}
+
+### Token inválido -> 401
+GET {{base}}/bookings/me
+Authorization: Bearer token.invalido.123
+
+### Credenciales incorrectas -> 401
+POST {{base}}/auth/login
+Content-Type: {{json}}
+
+{
+  "email": "ana.socia@velocore.io",
+  "password": "otraClave99"
+}
+
+### Socia intenta crear una clase -> 403
+POST {{base}}/classes
+Authorization: Bearer {{anaToken}}
+Content-Type: {{json}}
+
+{
+  "name": "Clase pirata",
+  "startsAt": "{{$datetime iso8601 2 d}}",
+  "durationMinutes": 60,
+  "capacity": 10
+}
+
+### Socia intenta listar usuarios -> 403
+GET {{base}}/users
+Authorization: Bearer {{anaToken}}
+
+### Socia intenta ver todas las reservas -> 403
+GET {{base}}/bookings
+Authorization: Bearer {{anaToken}}
+
+### Entrenador intenta reservar (solo clientes) -> 403
+POST {{base}}/bookings
+Authorization: Bearer {{lautaroToken}}
+Content-Type: {{json}}
+
+{
+  "classId": "{{kickboxingId}}"
+}
+
+### Clase inexistente (ID válido pero no existe) -> 404
+GET {{base}}/classes/000000000000000000000000
+
+### Ruta inexistente -> 404
+GET {{base}}/no-existe
