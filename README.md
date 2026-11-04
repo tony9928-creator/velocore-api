@@ -32,7 +32,7 @@ npm install
 cp .env.example .env     # en Windows PowerShell: Copy-Item .env.example .env
 ```
 
-Abre el `.env` y completa `MONGO_URI` (con **tu propia** base de datos) y `JWT_SECRET`. El detalle de cada variable está en la sección siguiente.
+`.env.example` solo trae los **nombres** de las variables, sin valores. Abre el `.env` y completa como mínimo `MONGO_URI` (con **tu propia** base de datos) y `JWT_SECRET`. Las demás son opcionales y, si las dejas vacías, usan su valor por defecto. El detalle y un ejemplo de cada variable está en la sección siguiente.
 
 **3. Arrancar la API**
 

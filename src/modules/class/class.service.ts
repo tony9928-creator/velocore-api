@@ -31,6 +31,7 @@ export class GymClassService {
   }
 
   async create(actor: Actor, input: CreateClassInput): Promise<GymClassView> {
+    this.assertBusinessRules(input);
     // Un entrenador solo crea clases propias; un admin puede asignar cualquier instructor.
     const { trainerId: requested, ...data } = input;
     const trainerId = actor.role === "admin" ? (requested ?? actor.userId) : actor.userId;
@@ -43,6 +44,7 @@ export class GymClassService {
   }
 
   async update(actor: Actor, id: string, changes: UpdateClassInput): Promise<GymClassView> {
+    this.assertBusinessRules(changes);
     const current = await this.findOrFail(id);
     if (actor.role !== "admin" && current.trainerId !== actor.userId) {
       throw AppError.forbidden("Solo el instructor de la clase o un admin puede modificarla");
@@ -63,6 +65,20 @@ export class GymClassService {
     await this.findOrFail(id);
     await this.bookings.cancelAllByClass(id);
     await this.classes.delete(id);
+  }
+
+  /**
+   * Reglas de negocio de la clase, validadas en la capa de servicio:
+   * el cupo debe ser un entero mayor a 0 y el horario debe ser una fecha futura.
+   * (El esquema de Zod de la ruta ya las controla; esta capa no depende de ello.)
+   */
+  private assertBusinessRules({ capacity, startsAt }: { capacity?: number; startsAt?: Date }): void {
+    if (capacity !== undefined && (!Number.isInteger(capacity) || capacity <= 0)) {
+      throw AppError.badRequest("El cupo debe ser un número entero mayor a 0");
+    }
+    if (startsAt !== undefined && (Number.isNaN(startsAt.getTime()) || startsAt.getTime() <= Date.now())) {
+      throw AppError.badRequest("El horario de la clase debe ser una fecha válida y futura");
+    }
   }
 
   private async findOrFail(id: string): Promise<GymClass> {
