@@ -3,3 +3,7 @@ dist
 .env
 .env.*
 !.env.example
+
+# Entorno de Thunder con tokens (se regenera con npm run thunder:env)
+docs/thunder/velocore.environment.json
+

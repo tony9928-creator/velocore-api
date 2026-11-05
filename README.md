@@ -21,7 +21,7 @@ Requisitos: Node.js 20 o superior y una base de datos MongoDB (Atlas gratuito o 
 **1. Clonar e instalar**
 
 ```bash
-git clone <url-del-repositorio>
+git clone https://github.com/tony9928-creator/velocore-api.git
 cd velocore-api
 npm install
 ```
@@ -56,6 +56,7 @@ Otros comandos:
 npm run build      # compila a dist/
 npm start          # ejecuta la versión compilada
 npm run typecheck  # verifica tipos sin compilar
+npm run thunder:env  # genera el entorno de Thunder Client (ver Pruebas manuales)
 ```
 
 ## Variables de entorno (`.env`)
@@ -176,7 +177,7 @@ Contraseña: entre 8 y 72 caracteres, con al menos una letra y un número.
 | GET | `/classes/:id` | Público | — | Detalle con `availableSlots` |
 | POST | `/classes` | 🔒 admin, trainer | `name`, `description?`, `startsAt`, `durationMinutes`, `capacity`, `trainerId?` | Crea una clase (`201`) |
 | PUT | `/classes/:id` | 🔒 admin, trainer dueño | `name`, `description?`, `startsAt`, `durationMinutes`, `capacity` | Reemplazo completo |
-| PATCH | `/classes/:id` | 🔒 admin, trainer dueño | cualquiera de los campos anteriores | Cambio parcial |
+| PATCH | `/classes/:id` | 🔒 admin, trainer dueño | al menos uno de los campos anteriores | Cambio parcial: solo modifica lo enviado |
 | DELETE | `/classes/:id` | 🔒 admin | — | Elimina la clase y cancela sus reservas |
 
 **Filtros de `GET /classes`** (combinables):
@@ -249,8 +250,19 @@ El archivo [`requests.http`](requests.http) tiene todas las peticiones, incluido
 
 Si cierras VS Code se pierden las variables: vuelve a ejecutar los logins. Para volver al estado inicial, ejecuta `npm run seed`.
 
+### Thunder Client (alternativa)
+
+En [`docs/thunder/`](docs/thunder) hay una colección con los mismos casos, organizada en carpetas del 1 al 6. Funciona con la versión gratuita de Thunder Client (no usa scripts). Los tokens y los IDs los genera un comando:
+
+1. Carga los datos y arranca la API: `npm run seed` y `npm run dev`.
+2. En otra terminal: `npm run thunder:env`. Hace login con los usuarios del seed y escribe `docs/thunder/velocore.environment.json` con los tokens, los IDs de las clases, una reserva de Ana y la fecha para el filtro `?date=`.
+3. En Thunder Client importa `velocore.collection.json` (Collections → Import) y `velocore.environment.json` (Env → Import), y activa el entorno **Velocore**.
+4. Ejecuta las carpetas en orden. La carpeta 6 elimina una clase: para repetir todo, vuelve al paso 1.
+
+Si Thunder Client ya tiene un entorno llamado **Velocore**, el comando lo actualiza directamente (después recarga VS Code: `Ctrl+Shift+P` → *Reload Window*). Los tokens vencen según `JWT_EXPIRES_IN`: si recibes `401`, vuelve a ejecutar `npm run thunder:env`. El archivo de entorno contiene tokens, por eso está en `.gitignore`.
+
 ## Seguridad
 
 - Las contraseñas se guardan con hash bcrypt y nunca se devuelven en las respuestas.
-- El JWT solo contiene el id del usuario y su rol.
+- El JWT solo contiene el id del usuario y su rol. Si un admin cambia el rol de un usuario, el cambio aplica desde su próximo login.
 - Los secretos se leen del `.env`; no hay credenciales en el código.
