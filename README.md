@@ -71,7 +71,7 @@ npm run thunder:env  # genera el entorno de Thunder Client (ver Pruebas manuales
 
 El archivo `.env` está en `.gitignore` y nunca se sube al repositorio. En Atlas, recuerda permitir tu IP en **Network Access**.
 
-> **Importante:** el nombre de la base (`velocore` en el ejemplo) va después del host y antes del `?`. Si lo omites, MongoDB usa una base llamada `test`. El seeder **borra** las colecciones de la base configurada, así que apunta siempre a una base propia.
+Ojo: el nombre de la base (`velocore` en el ejemplo) va después del host y antes del `?`. Si lo omites, MongoDB usa una base llamada `test`. El seeder borra las colecciones de la base configurada, así que apúntalo siempre a una base propia.
 
 Si prefieres MongoDB local, usa `MONGO_URI=mongodb://127.0.0.1:27017/velocore`.
 
@@ -134,21 +134,21 @@ Por seguridad, el seeder se niega a correr si `NODE_ENV=production`.
 
 | Acción | admin | trainer | client |
 |---|---|---|---|
-| Ver clases y disponibilidad | ✅ | ✅ | ✅ (también sin registrarse) |
-| Crear clase | ✅ | ✅ (a su nombre) | ❌ |
-| Editar clase (PUT/PATCH) | ✅ | ✅ (solo las suyas) | ❌ |
-| Eliminar clase | ✅ | ❌ | ❌ |
-| Reservar clase | ❌ | ❌ | ✅ |
-| Ver sus reservas | ✅ | ✅ | ✅ |
-| Ver reservas de clases | ✅ (todas) | ✅ (de sus clases) | ❌ |
-| Cancelar reserva | ✅ (cualquiera) | ❌ | ✅ (solo las suyas) |
-| Listar usuarios y cambiar roles | ✅ | ❌ | ❌ |
+| Ver clases y disponibilidad | Sí | Sí | Sí (también sin registrarse) |
+| Crear clase | Sí | Sí (a su nombre) | No |
+| Editar clase (PUT/PATCH) | Sí | Solo las suyas | No |
+| Eliminar clase | Sí | No | No |
+| Reservar clase | No | No | Sí |
+| Ver sus reservas | Sí | Sí | Sí |
+| Ver reservas de clases | Todas | De sus clases | No |
+| Cancelar reserva | Cualquiera | No | Solo las suyas |
+| Listar usuarios y cambiar roles | Sí | No | No |
 
 El registro público siempre crea usuarios `client`. El primer `admin` se asigna directamente en la base de datos; luego ese admin puede cambiar roles con `PATCH /api/users/:id/role`.
 
 ## Endpoints
 
-Base: `http://localhost:3000/api`. 🔒 = requiere `Authorization: Bearer <token>`.
+Base: `http://localhost:3000/api`. "Con token" significa que hay que enviar `Authorization: Bearer <token>`.
 
 ### Salud
 | Método | Ruta | Acceso | Descripción |
@@ -166,19 +166,19 @@ Contraseña: entre 8 y 72 caracteres, con al menos una letra y un número.
 ### Usuarios
 | Método | Ruta | Acceso | Body | Descripción |
 |---|---|---|---|---|
-| GET | `/users/me` | 🔒 Cualquier rol | — | Perfil del usuario autenticado |
-| GET | `/users` | 🔒 admin | — | Lista de usuarios |
-| PATCH | `/users/:id/role` | 🔒 admin | `role`: `admin`, `trainer` o `client` | Cambia el rol |
+| GET | `/users/me` | Cualquier rol | — | Perfil del usuario autenticado |
+| GET | `/users` | admin | — | Lista de usuarios |
+| PATCH | `/users/:id/role` | admin | `role`: `admin`, `trainer` o `client` | Cambia el rol |
 
 ### Clases
 | Método | Ruta | Acceso | Body | Descripción |
 |---|---|---|---|---|
 | GET | `/classes` | Público | — | Lista con `availableSlots`. Acepta filtros (ver abajo) |
 | GET | `/classes/:id` | Público | — | Detalle con `availableSlots` |
-| POST | `/classes` | 🔒 admin, trainer | `name`, `description?`, `startsAt`, `durationMinutes`, `capacity`, `trainerId?` | Crea una clase (`201`) |
-| PUT | `/classes/:id` | 🔒 admin, trainer dueño | `name`, `description?`, `startsAt`, `durationMinutes`, `capacity` | Reemplazo completo |
-| PATCH | `/classes/:id` | 🔒 admin, trainer dueño | al menos uno de los campos anteriores | Cambio parcial: solo modifica lo enviado |
-| DELETE | `/classes/:id` | 🔒 admin | — | Elimina la clase y cancela sus reservas |
+| POST | `/classes` | admin, trainer | `name`, `description?`, `startsAt`, `durationMinutes`, `capacity`, `trainerId?` | Crea una clase (`201`) |
+| PUT | `/classes/:id` | admin, trainer dueño | `name`, `description?`, `startsAt`, `durationMinutes`, `capacity` | Reemplazo completo |
+| PATCH | `/classes/:id` | admin, trainer dueño | al menos uno de los campos anteriores | Cambio parcial: solo modifica lo enviado |
+| DELETE | `/classes/:id` | admin | — | Elimina la clase y cancela sus reservas |
 
 **Filtros de `GET /classes`** (combinables):
 
@@ -193,10 +193,10 @@ Contraseña: entre 8 y 72 caracteres, con al menos una letra y un número.
 ### Reservas
 | Método | Ruta | Acceso | Body | Descripción |
 |---|---|---|---|---|
-| POST | `/bookings` | 🔒 client | `classId` | Reserva una clase (`201`) |
-| GET | `/bookings/me` | 🔒 Cualquier rol | — | Reservas del usuario autenticado |
-| GET | `/bookings` | 🔒 admin, trainer | — | Admin: todas. Trainer: las de sus clases. Acepta `?classId=` |
-| DELETE | `/bookings/:id` | 🔒 dueño o admin | — | Cancela la reserva (queda con `status: "cancelled"`) |
+| POST | `/bookings` | client | `classId` | Reserva una clase (`201`) |
+| GET | `/bookings/me` | Cualquier rol | — | Reservas del usuario autenticado |
+| GET | `/bookings` | admin, trainer | — | Admin: todas. Trainer: las de sus clases. Acepta `?classId=` |
+| DELETE | `/bookings/:id` | dueño o admin | — | Cancela la reserva (queda con `status: "cancelled"`) |
 
 ## Reglas de negocio
 
